@@ -1,0 +1,222 @@
+# Airstack Entities
+enum AirstackFeedType {
+  UNKNOWN
+  NFT_MARKET_PLACE
+  SWAP
+  BRIDGE
+}
+enum AirstackTokenType {
+  UNKNOWN
+  ERC721
+  ERC20
+}
+
+type AirstackFeedCandidate @entity {
+  id: ID! #chain-timestamp-contractAddress
+  contract: AirstackContract!
+  feedTypeId: AirstackFeedType! # Swap
+  tokenStats: [AirstackTokenStats!]! @derivedFrom(field: "feedCandidate")
+  transactions: [AirstackFeedTransaction!]! @derivedFrom(field: "feedCandidate")
+  walletCount: BigInt!
+  tokenCount: BigInt!
+  transactionCount: BigInt!
+  volumeInUSD: BigDecimal!
+  daySinceEpoch: BigInt!
+  startDayTimestamp: BigInt!
+  updatedTimestamp: BigInt!
+  accounts: [AirstackAccountFeed!] @derivedFrom(field: "feedCandidate")
+}
+
+type AirstackTokenStats @entity {
+  id: ID!
+  feedCandidate: AirstackFeedCandidate!
+  token: AirstackToken!
+  volumeInUSD:  BigDecimal!
+  count: BigInt!
+  amount: BigInt!
+}
+
+type AirstackToken @entity {
+  id: ID!
+  address: String!
+  type: AirstackTokenType!
+  name: String
+  symbol: String
+  decimals: BigInt
+  totalSupply: BigInt
+}
+
+
+type AirstackAccountFeed @entity {
+  id: ID!
+  account: AirstackAccount!
+  feedCandidate: AirstackFeedCandidate!
+  daySinceEpoch: BigInt!
+  startDayTimestamp: BigInt!
+  volumeInUSD: BigDecimal!
+}
+
+type AirstackAccount @entity {
+  id: ID!
+  address: String!
+  feeds: [AirstackAccountFeed!] @derivedFrom(field: "account")
+}
+
+type AirstackContract @entity {
+  id: ID!
+  address: String!
+}
+
+enum AirstackTransactionType {
+  UNKNOWN
+  SALE # ownership changes, 
+  TRANSFER # ownership remains same, token can change e.g bridge, get wrapped asset
+}
+
+enum AirstackFeedCandidateAction {
+  UNKNOWN
+  BUY
+  SELL
+  SWAP
+  BRIDGE
+  LEND
+  BORROW
+  ADDED_LIQUIDITY
+  MINT
+  BURN
+  ATTENDING
+  EARNED
+}
+
+type AirstackFeedTransaction @entity {
+  id: ID! #AirstackFeedCandidate or AirstackFeedCandidate-detail
+  feedCandidate: AirstackFeedCandidate!
+  hash: String!
+  transactionType: AirstackTransactionType!
+  sale: AirstackSale
+  transfer: AirstackTransfer
+}
+
+type AirstackSale @entity {
+  id: ID!
+  sale: AirstackTransfer!
+  receive: AirstackTransfer!
+  from: AirstackAccount!
+  to: AirstackAccount!
+}
+
+type AirstackTransfer @entity {
+  id: ID!
+  token: AirstackToken!
+  from: AirstackAccount!
+  to: AirstackAccount!
+  amount: BigInt!
+  fee: BigInt!
+}
+
+Example: 
+OpenSea: 
+
+
+type AirstackFeedCandidate @entity {
+  id: #"chain-contractAddress-timestamp" sourceChainId-targetChainId-sourceContract-targetContract-timestamp
+  contract:  "Address" #AirstackContract!
+  # feedTypeId: "BRIDGE"
+  actionType: AirstackFeedCandidateAction! #BRIDGE
+  tokenStats: [AirstackTokenStats!]! @derivedFrom(field: "feedCandidate")
+  transactions: [AirstackFeedTransaction!]! @derivedFrom(field: "feedCandidate")
+  walletCount: BigInt! # unique wallet address (to and from)
+  tokenCount: BigInt! # unique token ids
+  transactionCount: BigInt! # number of transactions (not unique)
+  volumeInUSD: BigDecimal! # call price oracle and get the data and +
+  daySinceEpoch: BigInt! # 
+  startDayTimestamp: BigInt!
+  updatedTimestamp: BigInt!
+  accounts: [AirstackAccountFeed!] @derivedFrom(field: "feedCandidate")
+}
+
+type AirstackToken @entity {
+  id: ID! #"chain-contract"
+  address: String! #"contract address"
+  type: AirstackTokenType! #"ERC721" Query the interface and get the token type.  
+  name: String # name
+  symbol: String # symbol
+  decimals: BigInt # decimals
+  totalSupply: BigInt # total supply
+}
+
+type AirstackTokenStats @entity {
+  id: ID! #"chain-{AirstackFeedCandidate.id}-{AirstackToken.id}"
+  feedCandidate: AirstackFeedCandidate!
+  token: AirstackToken! #
+  volumeInUSD:  BigDecimal!
+  count: BigInt!
+  amount: BigInt!
+}
+
+type AirstackFeedTransaction @entity {
+  id: ID! #"chain-{hash}"
+  feedCandidate: AirstackFeedCandidate!
+  hash: String!
+  transactionType: AirstackTransactionType! #SALE TRANSFER
+  sale: AirstackSale
+  transfer: AirstackTransfer
+}
+
+type AirstackSale @entity {
+  id: ID! #"chain-{hash}"
+  sale: AirstackTransfer!
+  receive: AirstackTransfer!
+  from: AirstackAccount!
+  to: AirstackAccount!
+}
+
+type AirstackTransfer @entity {
+  id: ID!
+  token: AirstackToken!
+  from: AirstackAccount!
+  to: AirstackAccount!
+  amount: BigInt!
+  fee: BigInt!
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# type AirstackSwap @entity {
+#   id: ID!
+#   sourceChainId: BigInt!
+#   destinationChainId: BigInt!
+#   sourceToken: AirstackToken!
+#   destinationToken: AirstackToken!
+# }
+
+# enum AirstackTokenErcType {
+#   Unknown
+#   ERC20
+#   ERC721
+# }
+
+# type AirstackToken @entity {
+#   id: ID!
+#   chainId: BigInt!
+#   tokenErcType: AirstackTokenErcType!
+#   name: String
+#   symbol: String
+#   decimal: BigInt
+#   tokenId: BigInt
+#   contract: String!
+#   owner: String
+# }

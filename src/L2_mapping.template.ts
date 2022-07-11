@@ -1,6 +1,8 @@
 import {
   Address,
-  BigInt
+  BigDecimal,
+  BigInt,
+  log
 } from "@graphprotocol/graph-ts";
 import {
   BonderAdded,
@@ -33,12 +35,28 @@ import {
   DailyVolume as DailyVolumeEntity,
   BonderFee as BonderFeeEntity,
   Token as TokenEntity,
+  AirstackSwap,
+  AirstackFeedCandidate,
+  AirstackFeedAccount,
+  AirstackFeedAccountMapping,
+  AirstackToken,
 } from '../generated/schema'
 import {
   createBlockEntityIfNotExists,
   createTransactionEntityIfNotExists,
   createTokenEntityIfNotExists
 } from './shared'
+
+import { getDayOpenTime, getDaysSinceEpoch } from "./modules/datetime";
+
+import { getNetworkId, getTokenAddress} from "./modules/addressinfo";
+// const NetworkId = {
+//   "mainnet": "1",
+//   "xdai": "100",
+//   "arbitrum-one": "42161",
+//   "matic": "137",
+//   "optimism": "10",
+// };
 
 const TOKEN_ADDRESS = '{{address}}'
 const TOKEN_NAME = '{{tokenName}}'
@@ -298,7 +316,118 @@ export function handleTransferSent(event: TransferSent): void {
   bonderFeeEntity.amount = bonderFeeEntity.amount.plus(event.params.bonderFee)
   bonderFeeEntity.token = TOKEN_SYMBOL
   bonderFeeEntity.save()
+
+  const network = "{{network}}";
+  // log.info("----> network: {}", [network]);
+
+  const sourceChainId = getNetworkId(network);
+  // log.info("----> sourceChainId: {}", [sourceChainId.toString()]);
+  const destinationTokenAddress = getTokenAddress(event.params.chainId, TOKEN_SYMBOL.toString());
+  // log.info("----> destinationTokenAddress: {}", [destinationTokenAddress]);
+ 
+ const sourceTokenEntityId = sourceChainId.toHexString().concat(TOKEN_ADDRESS);
+ let sourceToken = AirstackToken.load(sourceTokenEntityId);
+ if(!sourceToken) {
+  sourceToken = new AirstackToken(sourceTokenEntityId);
+  sourceToken.chainId = sourceChainId;
+  sourceToken.tokenErcType = "ERC20";
+  sourceToken.name = TOKEN_NAME;
+  sourceToken.symbol = TOKEN_SYMBOL;
+  // sourceToken.decimal = BigInt.fromString(TOKEN_DECIMALS);
+  sourceToken.contract = TOKEN_ADDRESS;
+  sourceToken.save()
+ }
+ const destinationTokenEntityId = event.params.chainId.toHexString().concat(destinationTokenAddress);
+let destinationToken = AirstackToken.load(destinationTokenEntityId);
+ if(!destinationToken) {
+  destinationToken = new AirstackToken(sourceTokenEntityId);
+  destinationToken.chainId = event.params.chainId;
+  destinationToken.tokenErcType = "ERC20";
+  destinationToken.contract = destinationTokenAddress;
+  destinationToken.save()
+ }
+ 
+ 
+ 
+  const airstackSwapEntityId = network
+    .concat(event.params.chainId.toHexString())
+    .concat(TOKEN_ADDRESS);
+    // log.info("----> airstackSwapEntityId: {}", [airstackSwapEntityId]);
+  let airstackSwapEntity = AirstackSwap.load(airstackSwapEntityId);
+  if (!airstackSwapEntity) {
+    airstackSwapEntity = new AirstackSwap(airstackSwapEntityId);
+    // log.info("----> sourceChainId: {}", [sourceChainId.toString()]);
+    airstackSwapEntity.sourceChainId = sourceChainId;
+    // log.info("----> destinationChainId: {}", [event.params.chainId.toString()]);
+    airstackSwapEntity.destinationChainId = event.params.chainId;
+    // log.info("----> sourceToken: {}", [TOKEN_ADDRESS]);
+    airstackSwapEntity.sourceToken = sourceToken.id;
+    // log.info("----> destinationToken: {}", [destinationTokenAddress]);
+    airstackSwapEntity.destinationToken = destinationToken.id;
+    airstackSwapEntity.save();
+  }
+
+  const timestamp = event.block.timestamp.toI32();
+  // log.info("----> timestamp: {}", [timestamp.toString()]);
+  let daySinceEpoch = getDaysSinceEpoch(timestamp);
+  // log.info("----> daySinceEpoch: {}", [daySinceEpoch]);
+
+  const feedTypeId = "swap";
+  // log.info("----> feedTypeId: {}", [feedTypeId]);
+  const airstackFeedCandidateId = network
+  .concat("swap")
+  .concat(event.params.chainId.toHexString())
+  .concat(event.address.toHexString())
+  .concat(TOKEN_ADDRESS)
+  .concat(daySinceEpoch);
+  // log.info("----> airstackFeedCandidateId: {}", [airstackFeedCandidateId]);
+
+  let feedCandidate = AirstackFeedCandidate.load(airstackFeedCandidateId);
+  if(!feedCandidate) {
+    feedCandidate = new AirstackFeedCandidate(airstackFeedCandidateId);
+    // log.info("----> contract: {}", [event.address.toHexString()]);
+    feedCandidate.contract = event.address.toHexString();
+    // log.info("----> feedTypeId: {}", [feedTypeId]);
+    feedCandidate.feedTypeId = feedTypeId;
+    // log.info("----> daySinceEpoch: {}", [daySinceEpoch.toString()]);
+    feedCandidate.daySinceEpoch = BigInt.fromString(daySinceEpoch);
+    // log.info("----> startDayTimestamp: {}", [getDayOpenTime(BigInt.fromI32(timestamp)).toString()]);
+    feedCandidate.startDayTimestamp = getDayOpenTime(BigInt.fromI32(timestamp));
+    // log.info("----> volumeInUSD: {}", [BigDecimal.fromString("0").toString()]);
+    feedCandidate.volumeInUSD = BigDecimal.fromString("0");
+    feedCandidate.count = BigInt.fromI32(0);
+
+    feedCandidate.swap = airstackSwapEntityId;
+  }
+  // log.info("----> count: {}", [BigInt.fromI32(1).plus(feedCandidate.count).toString()]);
+  feedCandidate.count = BigInt.fromI32(1).plus(feedCandidate.count);
+  // log.info("----> updatedTimestamp: {}", [event.block.timestamp.toString()]);
+  feedCandidate.updatedTimestamp = event.block.timestamp;
+  feedCandidate.save()
+
+  
+
+
+  const feedAccountId = airstackFeedCandidateId.concat(event.params.recipient.toHexString());
+  let feedAccount = AirstackFeedAccount.load(feedAccountId);
+  if(!feedAccount) {
+    feedAccount = new AirstackFeedAccount(feedAccountId);
+    feedAccount.account = event.params.recipient.toHexString();
+    feedAccount.save();
+  }
+
+  let feedAccountMapping = AirstackFeedAccountMapping.load(feedAccountId);
+  if(!feedAccountMapping) {
+    feedAccountMapping = new AirstackFeedAccountMapping(feedAccountId);
+    feedAccountMapping.feedAccount = feedAccountId;
+    feedAccountMapping.feedCandidate = airstackFeedCandidateId;
+    feedAccountMapping.daySinceEpoch = feedCandidate.daySinceEpoch;
+    feedAccountMapping.startDayTimestamp = feedCandidate.startDayTimestamp
+    feedAccountMapping.save();
+
+  }
 }
+
 
 export function handleTransfersCommitted(event: TransfersCommitted): void {
   let id = event.transaction.hash.toHexString().concat(event.transactionLogIndex.toString())

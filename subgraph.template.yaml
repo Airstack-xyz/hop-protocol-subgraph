@@ -15,7 +15,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.5
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - Transfer
@@ -37,7 +37,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.5
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - BonderAdded
@@ -54,6 +54,12 @@ dataSources:
         - WithdrawalBondSettled
         - WithdrawalBonded
         - Withdrew
+        - AirstackFeedCandidate
+        - AirstackFeedAccount
+        - AirstackFeedAccountMapping
+        - AirstackSwap
+        - AirstackTokenErcType
+        - AirstackToken
       abis:
         - name: L1_Bridge
           file: ./abis/L1_Bridge.json
@@ -103,7 +109,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.5
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - TokenSwap
@@ -137,7 +143,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.5
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - BonderAdded
@@ -152,6 +158,12 @@ dataSources:
         - WithdrawalBondSettled
         - WithdrawalBonded
         - Withdrew
+        - AirstackFeedCandidate
+        - AirstackFeedAccount
+        - AirstackFeedAccountMapping
+        - AirstackSwap
+        - AirstackTokenErcType
+        - AirstackToken
       abis:
         - name: L2_Bridge
           file: ./abis/L2_Bridge.json

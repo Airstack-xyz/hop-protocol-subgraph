@@ -502,3 +502,59 @@ type Token @entity {
   "Token symbol"
   symbol: String!
 }
+
+# Airstack Entities
+type AirstackFeedCandidate @entity {
+  id: ID!
+  contract: String!
+  feedTypeId: String! # Swap
+  swap: AirstackSwap
+  count: BigInt!
+  volumeInUSD: BigDecimal!
+  daySinceEpoch: BigInt!
+  startDayTimestamp: BigInt!
+  updatedTimestamp: BigInt!
+  feedAccountMapping: [AirstackFeedAccountMapping!]
+    @derivedFrom(field: "feedCandidate")
+}
+
+type AirstackFeedAccount @entity {
+  id: ID!
+  account: String!
+  feedAccountMapping: [AirstackFeedAccountMapping!]!
+    @derivedFrom(field: "feedAccount")
+}
+
+type AirstackFeedAccountMapping @entity {
+  id: ID!
+  feedAccount: AirstackFeedAccount!
+  feedCandidate: AirstackFeedCandidate!
+  daySinceEpoch: BigInt!
+  startDayTimestamp: BigInt
+}
+
+type AirstackSwap @entity {
+  id: ID!
+  sourceChainId: BigInt!
+  destinationChainId: BigInt!
+  sourceToken: AirstackToken!
+  destinationToken: AirstackToken!
+}
+
+enum AirstackTokenErcType {
+  Unknown
+  ERC20
+  ERC721
+}
+
+type AirstackToken @entity {
+  id: ID!
+  chainId: BigInt!
+  tokenErcType: AirstackTokenErcType!
+  name: String
+  symbol: String
+  decimal: BigInt
+  tokenId: BigInt
+  contract: String!
+  owner: String
+}

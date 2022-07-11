@@ -29,7 +29,7 @@ npm run build
 # npx graph auth https://api.thegraph.com/deploy/ $ACCESS_TOKEN
 
 # deploy:
-npx graph deploy --debug --product hosted-service --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/ "$GITHUB_ORG/{{subgraphName}}"
+# npx graph deploy --debug --product hosted-service --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/ "$GITHUB_ORG/{{subgraphName}}"
 
 # auth studio:
 # npx graph auth --studio $DEPLOY_KEY
