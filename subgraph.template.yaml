@@ -111,6 +111,15 @@ dataSources:
         - RemoveLiquidity
         - RemoveLiquidityOne
         - RemoveLiquidityImbalance
+        - AirstackFeedCandidate
+        - AirstackTokenStats
+        - AirstackToken
+        - AirstackAccountFeed
+        - AirstackAccount
+        - AirstackContract
+        - AirstackFeedTransaction
+        - AirstackSale
+        - AirstackTransfer
       abis:
         - name: L2_Amm
           file: ./abis/L2_Amm.json
