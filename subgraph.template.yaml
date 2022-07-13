@@ -111,15 +111,6 @@ dataSources:
         - RemoveLiquidity
         - RemoveLiquidityOne
         - RemoveLiquidityImbalance
-        - AirstackFeedCandidate
-        - AirstackTokenStats
-        - AirstackToken
-        - AirstackAccountFeed
-        - AirstackAccount
-        - AirstackContract
-        - AirstackFeedTransaction
-        - AirstackSale
-        - AirstackTransfer
       abis:
         - name: L2_Amm
           file: ./abis/L2_Amm.json
@@ -161,9 +152,50 @@ dataSources:
         - WithdrawalBondSettled
         - WithdrawalBonded
         - Withdrew
+        - AirstackFeedCandidate
+        - AirstackTokenStats
+        - AirstackToken
+        - AirstackAccountFeed
+        - AirstackAccount
+        - AirstackContract
+        - AirstackFeedTransaction
+        - AirstackSale
+        - AirstackTransfer
       abis:
         - name: L2_Bridge
           file: ./abis/L2_Bridge.json
+        - name: ChainlinkOracle
+          file: ./abis/prices/ChainLink.json
+        - name: ERC20
+          file: ./abis/prices/ERC20.json
+        - name: YearnLensContract
+          file: ./abis/prices/YearnLens.json
+        - name: UniswapFactory
+          file: ./abis/prices/uniswap/Factory.json
+        - name: UniswapFeeRouter
+          file: ./abis/prices/uniswap/FeeRouter.json
+        - name: UniswapPair
+          file: ./abis/prices/uniswap/Pair.json
+        - name: UniswapRouter
+          file: ./abis/prices/uniswap/Router.json
+        - name: SushiSwapRouter
+          file: ./abis/prices/sushiswap/Factory.json
+        - name: SushiSwapPair
+          file: ./abis/prices/sushiswap/Pair.json
+        - name: SushiSwapRouter
+          file: ./abis/prices/sushiswap/Router.json
+        - name: CurveFactory
+          file: ./abis/prices/curve/Factory.json
+        - name: CurvePoolRegistry
+          file: ./abis/prices/curve/PoolRegistry.json
+        - name: CurveRegistry
+          file: ./abis/prices/curve/Registry.json
+        - name: CalculationsCurve
+          file: ./abis/prices/calculations/Curve.json
+        - name: CalculationsSushiSwap
+          file: ./abis/prices/calculations/SushiSwap.json
+          
+
       eventHandlers:
         - event: BonderAdded(indexed address)
           handler: handleBonderAdded

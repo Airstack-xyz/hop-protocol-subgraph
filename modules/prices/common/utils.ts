@@ -1,5 +1,5 @@
 import * as constants from "./constants";
-import { ERC20 } from "../../../generated/aave-aave-eol/ERC20";
+import { ERC20 } from "../../../generated/HopL2Bridge/ERC20";
 import { Address, BigInt, ethereum } from "@graphprotocol/graph-ts";
 
 export function readValue<T>(
@@ -16,5 +16,5 @@ export function getTokenDecimals(tokenAddr: Address): BigInt {
   if (decimals.reverted) {
     return constants.DEFAULT_DECIMALS;
   }
-  return BigInt.fromI32(decimals.value);
+  return decimals.value;
 }

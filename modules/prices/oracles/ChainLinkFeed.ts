@@ -1,42 +1,58 @@
 import { Address } from "@graphprotocol/graph-ts";
 import { CustomPriceType } from "../common/types";
-import { ChainlinkOracle } from "../../../generated/ExampleVault/ChainlinkOracle";
+import { ChainlinkOracle } from "../../../generated/HopL2Bridge/ChainlinkOracle";
 import { polygonOracles as oracles } from "./oracles";
-import { ERC20 } from "../../../generated/ExampleVault/ERC20";
-import { ZERO_ADDRESS } from "../common/constants";
+import { ERC20 } from "../../../generated/HopL2Bridge/ERC20";
+import {
+  CHAIN_LINK_CONTRACT_ADDRESS,
+  CHAIN_LINK_USD_ADDRESS,
+  ZERO_ADDRESS,
+} from "../common/constants";
 
-export function getChainLinkContract(
-  asset: string,
-  network: string
-): ChainlinkOracle {
-  for (let i = 0; i < oracles.length; i++) {
-    if (oracles[i][0] === asset) {
-      return ChainlinkOracle.bind(Address.fromString(oracles[i][1]));
-    }
-  }
-  return ChainlinkOracle.bind(ZERO_ADDRESS);
+// export function getChainLinkContract(
+//   asset: string,
+//   network: string
+// ): ChainlinkOracle {
+//   for (let i = 0; i < oracles.length; i++) {
+//     if (oracles[i][0] === asset) {
+//       return ChainlinkOracle.bind(Address.fromString(oracles[i][1]));
+//     }
+//   }
+//   return ChainlinkOracle.bind(ZERO_ADDRESS);
+// }
+
+export function getChainLinkContract(network: string): ChainlinkOracle {
+  return ChainlinkOracle.bind(CHAIN_LINK_CONTRACT_ADDRESS.get(network));
 }
 
 export function getTokenPriceFromChainLink(
   tokenAddr: Address,
   network: string
 ): CustomPriceType {
-  const tokenContract = ERC20.bind(tokenAddr);
-  const symbol = tokenContract.symbol();
-  const chainLinkContract = getChainLinkContract(symbol, network);
+  const chainLinkContract = getChainLinkContract(network);
 
-  if (chainLinkContract._address === ZERO_ADDRESS) {
+  if (!chainLinkContract) {
     return new CustomPriceType();
   }
 
-  let result = chainLinkContract.try_getLatestRoundData(tokenAddr);
+  let result = chainLinkContract.try_latestRoundData(
+    tokenAddr,
+    CHAIN_LINK_USD_ADDRESS
+  );
 
   if (!result.reverted) {
-    const decimals = tokenContract.decimals();
+    let decimals = chainLinkContract.try_decimals(
+      tokenAddr,
+      CHAIN_LINK_USD_ADDRESS
+    );
+
+    if (decimals.reverted) {
+      new CustomPriceType();
+    }
 
     return CustomPriceType.initialize(
       result.value.value1.toBigDecimal(),
-      decimals
+      decimals.value
     );
   }
 

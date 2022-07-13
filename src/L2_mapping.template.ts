@@ -1,7 +1,11 @@
 import {
+  ethereum,
   Address,
-  BigInt
+  dataSource,
+  BigInt,
+  BigDecimal
 } from "@graphprotocol/graph-ts";
+
 import {
   BonderAdded,
   BonderRemoved,
@@ -33,12 +37,23 @@ import {
   DailyVolume as DailyVolumeEntity,
   BonderFee as BonderFeeEntity,
   Token as TokenEntity,
+  AirstackFeedCandidate,
+  AirstackContract,
+  AirstackAccountFeed,
+  AirstackAccount,
+  AirstackTokenStats,
+  AirstackToken,
+  AirstackFeedTransaction,
+  AirstackTransfer,
 } from '../generated/schema'
 import {
   createBlockEntityIfNotExists,
   createTransactionEntityIfNotExists,
   createTokenEntityIfNotExists
 } from './shared'
+
+import { getDayOpenTime, getDaysSinceEpoch } from "../modules/datetime";
+import {getUsdPrice} from "../modules/prices"
 
 const TOKEN_ADDRESS = '{{address}}'
 const TOKEN_NAME = '{{tokenName}}'
@@ -297,7 +312,230 @@ export function handleTransferSent(event: TransferSent): void {
   }
   bonderFeeEntity.amount = bonderFeeEntity.amount.plus(event.params.bonderFee)
   bonderFeeEntity.token = TOKEN_SYMBOL
-  bonderFeeEntity.save()
+  bonderFeeEntity.save();
+  // Airstack entities.
+  createAirstackFeedCandidate(event);
+}
+
+function getAirstackFeedCandidateEntityId(event: TransferSent): string {
+  const entityId = dataSource.network()
+  .concat(event.params.chainId.toHexString())
+  .concat(TOKEN_ADDRESS)
+  .concat(event.block.timestamp.toString())
+  
+  return entityId;
+}
+
+function getAirstackContractEntityId(event: ethereum.Event): string {
+  const entityId = dataSource.network()
+  .concat(event.address.toHexString());
+
+  return entityId;
+}
+
+function getAirstackFeedAccountEntityId(feedCandidateId: string, address: string): string {
+  const entityId =  `${feedCandidateId}-${address}`;
+  return entityId;
+}
+
+function getAirstackAccountEntityId(address: string): string {
+  const entityId = dataSource.network()
+  .concat(address);
+  return entityId;
+}
+
+function getAirstackTokenStatsEntityId(feedCandidateId: string, tokenAddress:string): string{
+  const entityId = `${feedCandidateId}-${tokenAddress}`;
+  return entityId;
+}
+
+function getAirstackTokenEntityId(): string{
+  const entityId = dataSource.network()
+  .concat(TOKEN_ADDRESS);
+
+  return entityId;
+}
+
+function getAirstackTransferEntityId(from: string, to: string): string {
+  const entityId = dataSource.network()
+  .concat(TOKEN_ADDRESS)
+  .concat(from)
+  .concat(to);
+
+  return entityId;
+}
+
+function getAirstackSaleEntityId(feedCandidateId:string,  event: TransferSent): string {
+  const entityId = dataSource.network()
+  .concat(feedCandidateId)
+  .concat(event.block.hash.toHexString());
+
+  return entityId;
+}
+
+function getAirstackTransactionEntityId(feedCandidateId:string,  event: TransferSent): string {
+  const entityId = dataSource.network()
+  .concat(feedCandidateId)
+  .concat(event.block.hash.toHexString());
+
+  return entityId;
+}
+
+function createAirstackFeedCandidate(event: TransferSent): void {
+  const airstackFeedCandidateId = getAirstackFeedCandidateEntityId(event);
+  let airstackFeedCandidate = AirstackFeedCandidate.load(airstackFeedCandidateId);
+  if(!airstackFeedCandidate){
+    airstackFeedCandidate = new AirstackFeedCandidate(airstackFeedCandidateId);
+    
+    const airstackContract = getOrCreateAirstackContract(event);
+    airstackFeedCandidate.contract = airstackContract.id;
+    airstackFeedCandidate.actionType = "BRIDGE";
+    airstackFeedCandidate.walletCount = BigInt.zero();
+    airstackFeedCandidate.tokenCount = BigInt.zero();
+    airstackFeedCandidate.transactionCount = BigInt.zero();
+    airstackFeedCandidate.volumeInUSD = BigDecimal.zero();
+
+    const timestamp = event.block.timestamp.toI32();
+    let daySinceEpoch = getDaysSinceEpoch(timestamp);
+    airstackFeedCandidate.daySinceEpoch = BigInt.fromString(daySinceEpoch);
+
+    const startDayTimestamp = getDayOpenTime(event.block.timestamp);
+    airstackFeedCandidate.startDayTimestamp = startDayTimestamp;
+  }
+  airstackFeedCandidate.updatedTimestamp = event.block.timestamp;
+  airstackFeedCandidate.transactionCount = airstackFeedCandidate.transactionCount.plus(BigInt.fromI32(1));
+  airstackFeedCandidate.walletCount = airstackFeedCandidate.walletCount.plus(BigInt.fromI32(1));
+  airstackFeedCandidate.tokenCount = airstackFeedCandidate.tokenCount.plus(BigInt.fromI32(1));
+    
+  const usdValue  = getUsdPrice(Address.fromString(TOKEN_ADDRESS), event.params.amount.toBigDecimal());
+  airstackFeedCandidate.volumeInUSD = airstackFeedCandidate.volumeInUSD.plus(usdValue);
+  airstackFeedCandidate.save();
+
+  getOrCreateAirstackAccountFeed(airstackFeedCandidateId, event);
+  getOrCreateAirstackTokenStats(airstackFeedCandidateId,event);
+  getOrCreateAirstackTransactions(airstackFeedCandidateId,event);
+}
+
+function getOrCreateAirstackAccountFeed(feedCandidateId:string,  event: TransferSent):void {
+  const fromAddress = event.transaction.from.toHexString();
+  const toAddress = event.params.recipient.toHexString();
+
+  const fromEntityId = getAirstackFeedAccountEntityId(feedCandidateId, fromAddress);
+  let fromEntity = AirstackAccountFeed.load(fromEntityId);
+  if(!fromEntity) {
+    fromEntity = new AirstackAccountFeed(fromEntityId);
+    fromEntity.feedCandidate = feedCandidateId;
+    fromEntity.volumeInUSD = BigDecimal.zero();
+    const account = getOrCreateAirstackAccount(fromAddress);
+    fromEntity.account = account.id;
+  }
+  const usdValue  = getUsdPrice(Address.fromString(TOKEN_ADDRESS), event.params.amount.toBigDecimal());
+  fromEntity.volumeInUSD = fromEntity.volumeInUSD.plus(usdValue)
+  fromEntity.save();
+
+  if(fromAddress !== toAddress) {
+    const toEntityId = getAirstackFeedAccountEntityId(feedCandidateId, toAddress);
+    let toEntity = AirstackAccountFeed.load(toEntityId);
+    if(!toEntity) {
+      toEntity = new AirstackAccountFeed(toEntityId);
+      toEntity.feedCandidate = feedCandidateId;
+      toEntity.volumeInUSD = BigDecimal.zero();
+      const account = getOrCreateAirstackAccount(toAddress);
+      toEntity.account = account.id;
+    }
+    const usdValue  = getUsdPrice(Address.fromString(TOKEN_ADDRESS), event.params.amount.toBigDecimal());
+    toEntity.volumeInUSD = toEntity.volumeInUSD.plus(usdValue)
+    toEntity.save();
+  }
+}
+
+function getOrCreateAirstackAccount(address: string): AirstackAccount {
+  const entityId = getAirstackAccountEntityId(address);
+  let entity = AirstackAccount.load(entityId);
+  if(!entity){
+    entity = new AirstackAccount(entityId);
+    entity.address = address;
+    entity.save();
+  }
+  return entity;
+}
+
+function getOrCreateAirstackContract(event: ethereum.Event): AirstackContract {
+  const entityId = getAirstackContractEntityId(event);
+  let airstackContract = AirstackContract.load(entityId);
+  if(!airstackContract){
+    airstackContract = new AirstackContract(entityId);
+    airstackContract.address = event.address.toHexString();
+    airstackContract.save()
+  }
+  return airstackContract;
+}
+
+function getOrCreateAirstackTokenStats(airstackFeedCandidateId:string, event: TransferSent): AirstackTokenStats {
+  const entityId = getAirstackTokenStatsEntityId(airstackFeedCandidateId, TOKEN_ADDRESS);
+  let entity = AirstackTokenStats.load(entityId);
+  if(!entity){
+    entity = new AirstackTokenStats(entityId);
+    entity.feedCandidate = airstackFeedCandidateId;
+    entity.count = BigInt.zero();
+    entity.amount = BigInt.zero();
+    entity.volumeInUSD = BigDecimal.zero();
+    const airstackToken = getOrCreateAirstackToken();
+    entity.token = airstackToken.id;
+  }
+  entity.count = entity.count.plus(BigInt.fromI32(1));
+  entity.amount = entity.amount.plus(event.params.amount);
+  const usdValue  = getUsdPrice(Address.fromString(TOKEN_ADDRESS), event.params.amount.toBigDecimal());
+  entity.volumeInUSD = entity.volumeInUSD.plus(usdValue);
+
+  entity.save();
+  return entity;
+}
+
+function getOrCreateAirstackToken(): AirstackToken {
+  const entityId = getAirstackTokenEntityId();
+  let entity = AirstackToken.load(entityId);
+  if(!entity) {
+    entity = new AirstackToken(entityId);
+    entity.address = TOKEN_ADDRESS;
+    entity.type = "ERC20";
+    entity.name = TOKEN_NAME;
+    entity.symbol = TOKEN_SYMBOL;
+    //entity.decimals = TOKEN_DECIMALS.toBigDecimal();
+    entity.save()
+  }
+  return entity;
+}
+
+function getOrCreateAirstackTransactions(feedCandidateId: string, event:TransferSent): void{
+  const entityId = getAirstackTransactionEntityId(feedCandidateId, event);
+  let entity = AirstackFeedTransaction.load(entityId);
+  if(!entity) {
+    entity = new AirstackFeedTransaction(entityId);
+    entity.hash = event.block.hash.toHexString();
+    entity.transactionType = "TRANSFER";
+    const transfer = getOrCreateAirstackTransfer(feedCandidateId, event);
+    entity.transfer = transfer.id;
+    entity.save();
+  }
+}
+
+function getOrCreateAirstackTransfer(feedCandidateId: string,  event: TransferSent): AirstackTransfer {
+  const entityId = getAirstackTransactionEntityId(feedCandidateId, event);
+  let entity = AirstackTransfer.load(entityId);
+  if(!entity) {
+    entity = new AirstackTransfer(entityId);
+    entity.token = getAirstackTokenEntityId();
+    const fromAddress = event.transaction.from.toHexString();
+    const toAddress = event.params.recipient.toHexString();
+
+    entity.from = getAirstackFeedAccountEntityId(feedCandidateId, fromAddress);
+    entity.to = getAirstackFeedAccountEntityId(feedCandidateId, toAddress);
+    entity.amount = event.params.amount;
+    entity.fee = event.params.bonderFee;
+    entity.save();
+  }
+  return entity;
 }
 
 export function handleTransfersCommitted(event: TransfersCommitted): void {

@@ -2,12 +2,12 @@ import * as utils from "../common/utils";
 import * as constants from "../common/constants";
 import { CustomPriceType } from "../common/types";
 import { Address, BigDecimal, BigInt } from "@graphprotocol/graph-ts";
-import { YearnLensContract } from "../../../generated/aave-aave-eol/YearnLensContract";
+import { YearnLensContract } from "../../../generated/HopL2Bridge/YearnLensContract";
 
 export function getYearnLensContract(
   network: string
 ): YearnLensContract | null {
-  const yearnLensAddress = constants.YEARN_LENS_CONTRACT_ADDRESS.get(network)!;
+  const yearnLensAddress = constants.YEARN_LENS_CONTRACT_ADDRESS.get(network);
   if (yearnLensAddress == constants.ZERO_ADDRESS) {
     return null;
   } else {

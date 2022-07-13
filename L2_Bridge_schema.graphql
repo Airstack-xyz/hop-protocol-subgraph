@@ -534,8 +534,6 @@ type AirstackFeedCandidate @entity {
   contract: AirstackContract!
   # feedTypeId: "BRIDGE"
   actionType: AirstackFeedCandidateAction! #BRIDGE
-  tokenStats: [AirstackTokenStats!]! @derivedFrom(field: "feedCandidate")
-  transactions: [AirstackFeedTransaction!]! @derivedFrom(field: "feedCandidate")
   walletCount: BigInt! # unique wallet address (to and from)
   tokenCount: BigInt! # unique token ids
   transactionCount: BigInt! # number of transactions (not unique)
@@ -544,6 +542,8 @@ type AirstackFeedCandidate @entity {
   startDayTimestamp: BigInt!
   updatedTimestamp: BigInt!
   accounts: [AirstackAccountFeed!] @derivedFrom(field: "feedCandidate")
+  tokenStats: [AirstackTokenStats!]! @derivedFrom(field: "feedCandidate")
+  transactions: [AirstackFeedTransaction!]! @derivedFrom(field: "feedCandidate")
 }
 
 type AirstackTokenStats @entity {
