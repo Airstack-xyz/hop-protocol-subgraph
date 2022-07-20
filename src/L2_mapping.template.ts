@@ -318,10 +318,11 @@ export function handleTransferSent(event: TransferSent): void {
 }
 
 function getAirstackFeedCandidateEntityId(event: TransferSent): string {
+  const startDayTimestamp = getDayOpenTime(event.block.timestamp);
   const entityId = dataSource.network()
   .concat(event.params.chainId.toHexString())
   .concat(TOKEN_ADDRESS)
-  .concat(event.block.timestamp.toString())
+  .concat(startDayTimestamp.toString())
   
   return entityId;
 }
@@ -373,12 +374,33 @@ function getAirstackSaleEntityId(feedCandidateId:string,  event: TransferSent): 
   return entityId;
 }
 
+// function getAirstackTransactionEntityId(feedCandidateId:string,  event: TransferSent): string {
+//   const entityId = dataSource.network()
+//   .concat(feedCandidateId)
+//   .concat(event.block.hash.toHexString());
+
+//   return entityId;
+// }
+
+function getAirstackTradeEntityId(): string{
+  const entityId = dataSource.network()
+  return entityId;
+}
+
 function getAirstackTransactionEntityId(feedCandidateId:string,  event: TransferSent): string {
   const entityId = dataSource.network()
   .concat(feedCandidateId)
   .concat(event.block.hash.toHexString());
 
   return entityId;
+}
+
+function getOrCreateAirstackTrade() {
+  const entityId = getAirstackTradeEntityId();
+  let entity = AirstackTrade.load(entityId);
+  if(!entity) {
+
+  }
 }
 
 function createAirstackFeedCandidate(event: TransferSent): void {
@@ -413,12 +435,17 @@ function createAirstackFeedCandidate(event: TransferSent): void {
 
   getOrCreateAirstackAccountFeed(airstackFeedCandidateId, event);
   getOrCreateAirstackTokenStats(airstackFeedCandidateId,event);
-  getOrCreateAirstackTransactions(airstackFeedCandidateId,event);
+  // getOrCreateAirstackTransactions(airstackFeedCandidateId,event);
+  getOrCreateAirstackTrade(airstackFeedCandidateId,event);
 }
 
 function getOrCreateAirstackAccountFeed(feedCandidateId:string,  event: TransferSent):void {
   const fromAddress = event.transaction.from.toHexString();
   const toAddress = event.params.recipient.toHexString();
+
+  const timestamp = event.block.timestamp.toI32();
+  const startDayTimestamp = getDayOpenTime(event.block.timestamp);
+      
 
   const fromEntityId = getAirstackFeedAccountEntityId(feedCandidateId, fromAddress);
   let fromEntity = AirstackAccountFeed.load(fromEntityId);
@@ -428,6 +455,9 @@ function getOrCreateAirstackAccountFeed(feedCandidateId:string,  event: Transfer
     fromEntity.volumeInUSD = BigDecimal.zero();
     const account = getOrCreateAirstackAccount(fromAddress);
     fromEntity.account = account.id;
+    let daySinceEpoch = getDaysSinceEpoch(timestamp);
+    fromEntity.daySinceEpoch = BigInt.fromString(daySinceEpoch);
+    fromEntity.startDayTimestamp = startDayTimestamp;
   }
   const usdValue  = getUsdPrice(Address.fromString(TOKEN_ADDRESS), event.params.amount.toBigDecimal());
   fromEntity.volumeInUSD = fromEntity.volumeInUSD.plus(usdValue)
@@ -442,6 +472,9 @@ function getOrCreateAirstackAccountFeed(feedCandidateId:string,  event: Transfer
       toEntity.volumeInUSD = BigDecimal.zero();
       const account = getOrCreateAirstackAccount(toAddress);
       toEntity.account = account.id;
+      let daySinceEpoch = getDaysSinceEpoch(timestamp);
+      toEntity.daySinceEpoch = BigInt.fromString(daySinceEpoch);
+      toEntity.startDayTimestamp = startDayTimestamp;
     }
     const usdValue  = getUsdPrice(Address.fromString(TOKEN_ADDRESS), event.params.amount.toBigDecimal());
     toEntity.volumeInUSD = toEntity.volumeInUSD.plus(usdValue)
@@ -507,36 +540,37 @@ function getOrCreateAirstackToken(): AirstackToken {
   return entity;
 }
 
-function getOrCreateAirstackTransactions(feedCandidateId: string, event:TransferSent): void{
-  const entityId = getAirstackTransactionEntityId(feedCandidateId, event);
-  let entity = AirstackFeedTransaction.load(entityId);
-  if(!entity) {
-    entity = new AirstackFeedTransaction(entityId);
-    entity.hash = event.block.hash.toHexString();
-    entity.transactionType = "TRANSFER";
-    const transfer = getOrCreateAirstackTransfer(feedCandidateId, event);
-    entity.transfer = transfer.id;
-    entity.save();
-  }
-}
+// function getOrCreateAirstackTransactions(feedCandidateId: string, event:TransferSent): void{
+//   const entityId = getAirstackTransactionEntityId(feedCandidateId, event);
+//   let entity = AirstackFeedTransaction.load(entityId);
+//   if(!entity) {
+//     entity = new AirstackFeedTransaction(entityId);
+//     entity.hash = event.block.hash.toHexString();
+//     entity.feedCandidate = feedCandidateId;
+//     entity.transactionType = "TRANSFER";
+//     const transfer = getOrCreateAirstackTransfer(feedCandidateId, event);
+//     entity.transfer = transfer.id;
+//     entity.save();
+//   }
+// }
 
-function getOrCreateAirstackTransfer(feedCandidateId: string,  event: TransferSent): AirstackTransfer {
-  const entityId = getAirstackTransactionEntityId(feedCandidateId, event);
-  let entity = AirstackTransfer.load(entityId);
-  if(!entity) {
-    entity = new AirstackTransfer(entityId);
-    entity.token = getAirstackTokenEntityId();
-    const fromAddress = event.transaction.from.toHexString();
-    const toAddress = event.params.recipient.toHexString();
+// function getOrCreateAirstackTransfer(feedCandidateId: string,  event: TransferSent): AirstackTransfer {
+//   const entityId = getAirstackTransactionEntityId(feedCandidateId, event);
+//   let entity = AirstackTransfer.load(entityId);
+//   if(!entity) {
+//     entity = new AirstackTransfer(entityId);
+//     entity.token = getAirstackTokenEntityId();
+//     const fromAddress = event.transaction.from.toHexString();
+//     const toAddress = event.params.recipient.toHexString();
 
-    entity.from = getAirstackFeedAccountEntityId(feedCandidateId, fromAddress);
-    entity.to = getAirstackFeedAccountEntityId(feedCandidateId, toAddress);
-    entity.amount = event.params.amount;
-    entity.fee = event.params.bonderFee;
-    entity.save();
-  }
-  return entity;
-}
+//     entity.from = getAirstackAccountEntityId(fromAddress);
+//     entity.to = getAirstackAccountEntityId(toAddress);
+//     entity.amount = event.params.amount;
+//     entity.fee = event.params.bonderFee;
+//     entity.save();
+//   }
+//   return entity;
+// }
 
 export function handleTransfersCommitted(event: TransfersCommitted): void {
   let id = event.transaction.hash.toHexString().concat(event.transactionLogIndex.toString())

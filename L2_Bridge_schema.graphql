@@ -520,6 +520,7 @@ enum AirstackFeedCandidateAction {
   BUY
   SELL
   SWAP
+  BRIDGE
   LEND
   BORROW
   ADDED_LIQUIDITY
@@ -590,20 +591,19 @@ type AirstackFeedTransaction @entity {
   feedCandidate: AirstackFeedCandidate!
   hash: String!
   transactionType: AirstackTransactionType!
-  sale: AirstackSale
+  sale: AirstackTrade
   transfer: AirstackTransfer
 }
 
-type AirstackSale @entity {
+type AirstackTrade @entity {
   id: ID!
-  sale: AirstackTransfer!
+  send: AirstackTransfer!
   receive: AirstackTransfer!
-  from: AirstackAccount!
-  to: AirstackAccount!
 }
 
 type AirstackTransfer @entity {
   id: ID!
+  chainId: BigInt!
   token: AirstackToken!
   from: AirstackAccount!
   to: AirstackAccount!
